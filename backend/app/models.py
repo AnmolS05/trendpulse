@@ -1,5 +1,5 @@
 """Database models."""
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from .database import Base
 
@@ -15,6 +15,13 @@ class Ticker(Base):
     
     # Phonetic indexing
     phonetic_primary = Column(String, index=True)
+
+    # Expanded Ticker details
+    sector = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    exchange = Column(String, nullable=True) # NYSE, NASDAQ, NSE, BSE
+    float_shares = Column(Float, nullable=True) # in millions
+    active = Column(Integer, default=1)
 
 
 class Brand(Base):
@@ -37,3 +44,113 @@ class Alert(Base):
     volume_surge_multiplier = Column(Float)
     social_velocity = Column(Float)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Expanded alert metadata for Phase 2 and 3
+    confidence_score = Column(Float, default=0.0)
+    confidence_drivers = Column(String, nullable=True)
+    confidence_weaknesses = Column(String, nullable=True)
+    explanation = Column(String, nullable=True)
+    evidence_summary = Column(String, nullable=True)
+    risk_summary = Column(String, nullable=True)
+    risk_flags = Column(String, nullable=True)
+    news_count = Column(Integer, default=0)
+
+
+class SourceHealth(Base):
+    """Tracks the success/failure history of external ingestion APIs."""
+    __tablename__ = "source_health"
+
+    source = Column(String, primary_key=True, index=True)
+    status = Column(String, index=True) # healthy, error
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    last_failure_at = Column(DateTime(timezone=True), nullable=True)
+    last_error_code = Column(String, nullable=True)
+    last_error_message = Column(String, nullable=True)
+
+
+class TrendObservation(Base):
+    """Stores individual observations harvested from social channels."""
+    __tablename__ = "trend_observations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topic = Column(String, index=True)
+    source = Column(String, index=True)
+    raw_value = Column(Float)
+    normalized_value = Column(Float)
+    observed_at = Column(DateTime(timezone=True), server_default=func.now())
+    source_url = Column(String, nullable=True)
+    metadata_json = Column(String, nullable=True)
+
+
+class MarketObservation(Base):
+    """Stores individual bar or quote observations for tickers."""
+    __tablename__ = "market_observations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String, index=True)
+    provider = Column(String, index=True)
+    latest_price = Column(Float, nullable=True)
+    latest_volume = Column(Float, nullable=True)
+    avg_volume = Column(Float, nullable=True)
+    volume_surge = Column(Float, nullable=True)
+    observed_at = Column(DateTime(timezone=True), server_default=func.now())
+    metadata_json = Column(String, nullable=True)
+
+
+class AlertEvidence(Base):
+    """Maps alert generation instances to supporting observations."""
+    __tablename__ = "alert_evidence"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_id = Column(Integer, ForeignKey("alerts.id", ondelete="CASCADE"), index=True)
+    trend_observation_id = Column(Integer, ForeignKey("trend_observations.id", ondelete="SET NULL"), nullable=True)
+    market_observation_id = Column(Integer, ForeignKey("market_observations.id", ondelete="SET NULL"), nullable=True)
+
+
+class DiscoveredTopic(Base):
+    """Tracks topics dynamically discovered by ingestion streams."""
+    __tablename__ = "discovered_topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topic = Column(String, unique=True, index=True)
+    first_seen_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
+    source_count = Column(Integer, default=1)
+    status = Column(String, default="active", index=True)
+
+
+class Watchlist(Base):
+    """User-monitored tickers or topics."""
+    __tablename__ = "watchlists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol_or_topic = Column(String, unique=True, index=True)
+    alert_threshold = Column(Float, default=50.0)
+    notification_enabled = Column(Integer, default=1)
+
+
+class NotificationHistory(Base):
+    """Tracks alerts dispatched to external communication adapters."""
+    __tablename__ = "notification_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_id = Column(Integer, ForeignKey("alerts.id", ondelete="CASCADE"), index=True)
+    channel = Column(String, index=True) # e.g., discord, email
+    status = Column(String, index=True) # sent, failed
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+    error_message = Column(String, nullable=True)
+
+
+class NewsArticle(Base):
+    """Caches matched news catalyst articles for validation corroboration."""
+    __tablename__ = "news_articles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    source = Column(String)
+    url = Column(String, unique=True, index=True)
+    published_at = Column(DateTime(timezone=True))
+    summary = Column(String, nullable=True)
+    topic = Column(String, nullable=True, index=True)
+    ticker_symbol = Column(String, nullable=True, index=True)
+

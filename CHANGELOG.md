@@ -1,5 +1,36 @@
 # Changelog
 
+## [2026-06-07T15:40:00+05:30]
+- Fully executed TrendPulse Phase 2 and Phase 3 Roadmap.
+- Refactored `social.py`, `market.py`, and `poller.py` to support strict no-random mode, Google Trends RSS daily discovery, authenticated Reddit OAuth, Google News RSS catalyst lookup, historical baselines (last 30 days), and Discord webhook notifications.
+- Created `SourceHealth`, `TrendObservation`, `MarketObservation`, `AlertEvidence`, `DiscoveredTopic`, `Watchlist`, `NotificationHistory`, and `NewsArticle` database models.
+- Updated `Ticker` and `Alert` schemas, resolving all Pydantic v2 deprecation class Config warnings by upgrading to ConfigDict.
+- Implemented confidence scoring logic and risk warnings (microcap, liquidity, and pump risk) in `scorer.py`.
+- Developed false positive matched filters (stopwords, short-word ambiguity, and industry mismatches) in `matching.py`.
+- Extended routes API with evidence tracking, timelines, watchlists, config controllers, and backtesting metrics.
+- Overhauled React frontend with settings configs, source health indicators, watchlist managers, backtest controllers, and expandable evidence/timeline card drawers.
+- Added comprehensive unit tests in `test_scorer.py`, `test_matching.py`, and `test_reliability.py`, ensuring all 13 tests pass.
+- Files affected:
+  - `backend/app/models.py`
+  - `backend/app/schemas.py`
+  - `backend/app/config.py`
+  - `backend/app/api/routes.py`
+  - `backend/app/ingestion/social.py`
+  - `backend/app/ingestion/market.py`
+  - `backend/app/ingestion/poller.py`
+  - `backend/app/analytics/matching.py`
+  - `backend/app/analytics/scorer.py`
+  - `backend/seed.py`
+  - `backend/requirements.txt`
+  - `.env`
+  - `.env.example`
+  - `backend/tests/test_scorer.py`
+  - `backend/tests/test_matching.py`
+  - `backend/tests/test_reliability.py`
+  - `frontend/src/components/Dashboard.jsx`
+  - `frontend/src/components/AlertCard.jsx`
+  - `frontend/src/components/MetricsGrid.jsx`
+
 ## [2026-06-07T12:45:00+05:30]
 - Consolidated phonetic matching pipeline: deleted the unused Soundex (`phonetic_secondary`) column from `backend/app/models.py`, calculations from `backend/app/analytics/matching.py`, and database seeds from `backend/seed.py`.
 - Replaced `Levenshtein` package dependency with jellyfish built-in `jellyfish.levenshtein_distance` to consolidate dependencies.
