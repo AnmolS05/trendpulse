@@ -1,0 +1,9 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlalchemy==2.0.23
+pydantic==2.5.2
+pydantic-settings==2.1.0
+jellyfish==1.0.3
+pytrends==4.9.2
+textblob==0.17.1
+pytest==7.4.3

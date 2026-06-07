@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./trendpulse.db
+      - API_KEY=dev_secret_key_123
+    volumes:
+      - backend-data:/app
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "4173:4173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:
