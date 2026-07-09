@@ -1,4 +1,4 @@
-"""Database seeding script with expanded ticker and brand universe."""
+"""Database seeding script with zero hardcoded brands or tickers."""
 import logging
 import sys
 import os
@@ -6,131 +6,46 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.database import engine, Base, SessionLocal
-from app.models import Ticker, Brand
-from app.analytics.matching import generate_phonetic_key
+from app.models import Ticker, Brand, Alert, SourceHealth
 
 logging.basicConfig(level=logging.INFO)
 
 def seed_data():
-    """Drops all tables, recreates them, and seeds initial data."""
-    logging.info("Creating tables...")
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    """Initializes the database, runs migrations, and purges all old historical alerts."""
+    logging.info("Running database migrations...")
+    from app.database import run_schema_migrations
+    run_schema_migrations(engine)
     
     db = SessionLocal()
     
     try:
-        # Seed Tickers (US and Indian Equities)
-        tickers = [
-            Ticker(
-                symbol="PARLE.NS", 
-                company_name="Parle Industries", 
-                market_cap=5.0, 
-                avg_volume=12000, 
-                sector="Consumer Goods",
-                industry="Confectionery",
-                exchange="NSE",
-                float_shares=10.0,
-                active=1
-            ),
-            Ticker(
-                symbol="SIGL", 
-                company_name="Signal Advance", 
-                market_cap=20.0, 
-                avg_volume=45000, 
-                sector="Healthcare",
-                industry="Medical Devices",
-                exchange="NASDAQ",
-                float_shares=15.0,
-                active=1
-            ),
-            Ticker(
-                symbol="BOMBAY.NS", 
-                company_name="Bombay Oxygen Investments", 
-                market_cap=15.0, 
-                avg_volume=2500, 
-                sector="Industrials",
-                industry="Industrial Gases",
-                exchange="BSE",
-                float_shares=2.0,
-                active=1
-            ),
-            Ticker(
-                symbol="ZOOM", 
-                company_name="Zoom Technologies", 
-                market_cap=2.0, 
-                avg_volume=800, 
-                sector="Technology",
-                industry="Telecommunications",
-                exchange="NASDAQ",
-                float_shares=5.0,
-                active=1
-            ),
-            Ticker(
-                symbol="AAPL", 
-                company_name="Apple Inc", 
-                market_cap=3000000.0, 
-                avg_volume=52000000, 
-                sector="Technology",
-                industry="Consumer Electronics",
-                exchange="NASDAQ",
-                float_shares=15000.0,
-                active=1
-            ),
-            Ticker(
-                symbol="MSFT", 
-                company_name="Microsoft Corporation", 
-                market_cap=3100000.0, 
-                avg_volume=22000000, 
-                sector="Technology",
-                industry="Software",
-                exchange="NASDAQ",
-                float_shares=7400.0,
-                active=1
-            ),
-            Ticker(
-                symbol="TSLA", 
-                company_name="Tesla Inc", 
-                market_cap=600000.0, 
-                avg_volume=85000000, 
-                sector="Automotive",
-                industry="Electric Vehicles",
-                exchange="NASDAQ",
-                float_shares=2700.0,
-                active=1
-            ),
-            Ticker(
-                symbol="RELIANCE.NS", 
-                company_name="Reliance Industries", 
-                market_cap=200000.0, 
-                avg_volume=6000000, 
-                sector="Energy",
-                industry="Oil & Gas",
-                exchange="NSE",
-                float_shares=6700.0,
-                active=1
-            )
-        ]
-        
-        for t in tickers:
-            t.phonetic_primary = generate_phonetic_key(t.company_name)
-            db.add(t)
+        # Purge old pre-seeded mock tickers to ensure strict autonomous live operation
+        mock_symbols = ["PARLE.NS", "SIGL", "BOMBAY.NS", "ZOOM", "AAPL", "MSFT", "TSLA", "RELIANCE.NS"]
+        deleted_tickers = db.query(Ticker).filter(Ticker.symbol.in_(mock_symbols)).delete(synchronize_session=False)
+        if deleted_tickers:
+            logging.info(f"Purged {deleted_tickers} old pre-seeded mock tickers.")
             
-        # Seed Brands
-        brands = [
-            Brand(brand_name="Parle Products", industry="Confectionery"),
-            Brand(brand_name="Signal Messenger", industry="Software"),
-            Brand(brand_name="Melody Chocolate", industry="Confectionery")
-        ]
-        
-        for b in brands:
-            db.add(b)
+        # Purge old pre-seeded mock brands
+        mock_brands = ["Parle Products", "Signal Messenger", "Melody Chocolate"]
+        deleted_brands = db.query(Brand).filter(Brand.brand_name.in_(mock_brands)).delete(synchronize_session=False)
+        if deleted_brands:
+            logging.info(f"Purged {deleted_brands} old pre-seeded mock brands.")
+            
+        # Delete ALL old alerts to start with a completely clean, real-time dashboard
+        deleted_alerts = db.query(Alert).delete(synchronize_session=False)
+        if deleted_alerts:
+            logging.info(f"Purged {deleted_alerts} old historical alerts.")
+            
+        # Purge any old source health records to prevent stale status banners on start
+        deleted_health = db.query(SourceHealth).delete(synchronize_session=False)
+        if deleted_health:
+            logging.info(f"Purged {deleted_health} stale source health tracking records.")
             
         db.commit()
-        logging.info("Database seeded successfully.")
+        logging.info("Database initialized successfully with zero static mock companies. Ready for strict autonomous discovery.")
     except Exception as e:
         db.rollback()
-        logging.error(f"Error seeding database: {e}")
+        logging.error(f"Error during database initialization: {e}")
     finally:
         db.close()
 

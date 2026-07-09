@@ -26,6 +26,10 @@ class AlertResponse(AlertBase):
     risk_summary: Optional[str] = None
     risk_flags: Optional[str] = None
     news_count: int = 0
+    is_predictive: int = 0
+    surge_probability: Optional[float] = None
+    social_acceleration: Optional[float] = None
+    est_lead_time_hours: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -99,5 +103,81 @@ class NewsArticleResponse(BaseModel):
 
 class AdminConfigRequest(BaseModel):
     """Schema for dynamically altering configurations."""
-    strict_real_data: bool
-    allow_simulated_data: bool
+    meme_weight_velocity: float
+    meme_weight_link: float
+    meme_weight_surge: float
+    meme_weight_cap: float
+    global_alert_threshold: float
+
+
+class TickerCreateRequest(BaseModel):
+    """Schema for adding/creating a ticker symbol."""
+    symbol: str
+    company_name: str
+    market_cap: Optional[float] = None
+    avg_volume: Optional[float] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    exchange: Optional[str] = None
+    float_shares: Optional[float] = None
+    active: int = 1
+
+
+class TickerResponse(BaseModel):
+    """Schema for reporting ticker details."""
+    id: int
+    symbol: str
+    company_name: str
+    market_cap: Optional[float] = None
+    avg_volume: Optional[float] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    exchange: Optional[str] = None
+    float_shares: Optional[float] = None
+    active: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BrandCreateRequest(BaseModel):
+    """Schema for adding/creating a tracked brand/topic."""
+    brand_name: str
+    industry: Optional[str] = None
+
+
+class BrandResponse(BaseModel):
+    """Schema for reporting brand details."""
+    id: int
+    brand_name: str
+    industry: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MacroTrendResponse(BaseModel):
+    """Response schema for today's speculative macro trend analyses."""
+    id: int
+    title: str
+    trend_type: str
+    description: str
+    impact_direction: str
+    suggested_sectors: str
+    associated_tickers: str
+    confidence_score: float
+    observed_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EntityRecommendationResponse(BaseModel):
+    """Response schema for dynamically discovered stock suggestions."""
+    id: int
+    symbol: str
+    company_name: str
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    exchange: Optional[str] = None
+    status: str
+    observed_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

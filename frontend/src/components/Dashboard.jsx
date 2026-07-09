@@ -14,21 +14,28 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'predictive'
   
   // New Phase 2 & 3 State
-  const [config, setConfig] = useState({ strict_real_data: true, allow_simulated_data: false });
+  const [config, setConfig] = useState({ 
+    strict_real_data: true, 
+    allow_simulated_data: false,
+    meme_weight_velocity: 20,
+    meme_weight_link: 30,
+    meme_weight_surge: 30,
+    meme_weight_cap: 10,
+    global_alert_threshold: 50
+  });
   const [sourceHealth, setSourceHealth] = useState([]);
-  const [watchlist, setWatchlist] = useState([]);
   const [backtestStats, setBacktestStats] = useState(null);
   const [backtesting, setBacktesting] = useState(false);
+  const [macroTrends, setMacroTrends] = useState([]);
   
-  // Watchlist Input
-  const [newSymbol, setNewSymbol] = useState('');
-  const [newThreshold, setNewThreshold] = useState(50);
+  // Dynamic Admin Panel state
+  const [keysStatus, setKeysStatus] = useState({});
   
   // UI Panels toggles
   const [showConfig, setShowConfig] = useState(false);
-  const [showWatchlistPanel, setShowWatchlistPanel] = useState(false);
 
   const fetchAlerts = useCallback(async () => {
     setLoading(true);
@@ -48,9 +55,16 @@ const Dashboard = () => {
     }
   }, []);
 
+  /**
+   * Fetches the current admin/scanner configurations from backend.
+   */
   const fetchConfig = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/admin/config`);
+      const response = await fetch(`${API_BASE}/api/admin/config`, {
+        headers: {
+          'X-API-KEY': import.meta.env.VITE_API_KEY || 'dev_secret_key_123'
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setConfig(data);
@@ -60,6 +74,30 @@ const Dashboard = () => {
     }
   }, []);
 
+  /**
+   * Fetches active API credentials status (masked).
+   */
+  const fetchKeysStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/keys`, {
+        headers: {
+          'X-API-KEY': import.meta.env.VITE_API_KEY || 'dev_secret_key_123'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setKeysStatus(data);
+      }
+    } catch (err) {
+      console.error("Error fetching keys status:", err);
+    }
+  }, []);
+
+
+
+  /**
+   * Fetches source health records for the scraping adapters.
+   */
   const fetchSourceHealth = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/api/health/sources`);
@@ -72,17 +110,21 @@ const Dashboard = () => {
     }
   }, []);
 
-  const fetchWatchlist = useCallback(async () => {
+
+
+  const fetchMacroTrends = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/watchlist`);
+      const response = await fetch(`${API_BASE}/api/macro-trends`);
       if (response.ok) {
         const data = await response.json();
-        setWatchlist(data);
+        setMacroTrends(data);
       }
     } catch (err) {
-      console.error("Error fetching watchlist:", err);
+      console.error("Error fetching macro trends:", err);
     }
   }, []);
+
+
 
   const triggerSync = async () => {
     setIsSyncing(true);
@@ -101,6 +143,7 @@ const Dashboard = () => {
       fetchSourceHealth();
       setTimeout(() => {
         fetchAlerts();
+        fetchMacroTrends();
         setSyncSuccess(false);
       }, 1500);
     } catch (err) {
@@ -111,15 +154,23 @@ const Dashboard = () => {
     }
   };
 
-  const updateConfig = async (strict, simulated) => {
+  /**
+   * Updates admin settings configuration and posts to backend.
+   * @param {Object} updatedFields - Fields to merge and update.
+   */
+  const updateConfig = async (updatedFields) => {
+    const newConfig = { ...config, ...updatedFields };
+    setConfig(newConfig);
     try {
       const response = await fetch(`${API_BASE}/api/admin/config`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ strict_real_data: strict, allow_simulated_data: simulated })
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-KEY': import.meta.env.VITE_API_KEY || 'dev_secret_key_123'
+        },
+        body: JSON.stringify(newConfig)
       });
       if (response.ok) {
-        setConfig({ strict_real_data: strict, allow_simulated_data: simulated });
         fetchAlerts();
       }
     } catch (err) {
@@ -127,42 +178,16 @@ const Dashboard = () => {
     }
   };
 
-  const handleAddWatchlist = async (e) => {
-    e.preventDefault();
-    if (!newSymbol) return;
-    try {
-      const response = await fetch(`${API_BASE}/api/watchlist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol_or_topic: newSymbol.trim().toUpperCase(), alert_threshold: parseFloat(newThreshold) })
-      });
-      if (response.ok) {
-        setNewSymbol('');
-        fetchWatchlist();
-      }
-    } catch (err) {
-      console.error("Error adding to watchlist:", err);
-    }
-  };
 
-  const handleRemoveWatchlist = async (symbol) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/watchlist/${symbol}`, {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        fetchWatchlist();
-      }
-    } catch (err) {
-      console.error("Error removing from watchlist:", err);
-    }
-  };
 
   const runBacktesting = async () => {
     setBacktesting(true);
     try {
       const response = await fetch(`${API_BASE}/api/backtest`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'X-API-KEY': import.meta.env.VITE_API_KEY || 'dev_secret_key_123'
+        }
       });
       if (response.ok) {
         const data = await response.json();
@@ -179,8 +204,9 @@ const Dashboard = () => {
     fetchAlerts();
     fetchConfig();
     fetchSourceHealth();
-    fetchWatchlist();
-  }, [fetchAlerts, fetchConfig, fetchSourceHealth, fetchWatchlist]);
+    fetchKeysStatus();
+    fetchMacroTrends();
+  }, [fetchAlerts, fetchConfig, fetchSourceHealth, fetchKeysStatus, fetchMacroTrends]);
 
   // Dynamic statistics
   const avgScore = alerts.length
@@ -190,6 +216,9 @@ const Dashboard = () => {
   const avgConfidence = alerts.length
     ? Math.round(alerts.reduce((acc, curr) => acc + curr.confidence_score, 0) / alerts.length)
     : 0;
+
+  // Ensure we fall back to a dynamic evaluation if config is loading
+  const currentThreshold = config ? config.global_alert_threshold : 30;
 
   return (
     <div className="min-h-screen bg-[#0b0f19] bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.15),rgba(255,255,255,0))] text-slate-100 font-sans">
@@ -206,33 +235,16 @@ const Dashboard = () => {
                 <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-indigo-200 to-white bg-clip-text text-transparent">
                   TrendPulse Pro
                 </h1>
-                {config.strict_real_data ? (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold uppercase">
-                    Strict Mode
-                  </span>
-                ) : (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-extrabold uppercase animate-pulse">
-                    Demo/Simulated
-                  </span>
-                )}
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-extrabold uppercase">
+                  LIVE DATA
+                </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium">Equities phonetic confusion & evidence-backed momentum scanner</p>
+              <p className="text-xs text-slate-400 font-medium">Indian Equities (NSE/BSE) Scanner - Mistaken Identity Predictor via r/IndianStreetBets</p>
             </div>
           </div>
           
           <div className="flex items-center space-x-3 mt-4 sm:mt-0">
-            {/* Watchlist Toggle */}
-            <button
-              onClick={() => setShowWatchlistPanel(!showWatchlistPanel)}
-              className={`flex items-center space-x-1 px-3 py-2 text-sm font-semibold rounded-lg border transition-all duration-200 ${
-                showWatchlistPanel 
-                  ? 'bg-indigo-600 text-white border-indigo-500' 
-                  : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              <Eye className="w-4 h-4" />
-              <span>Watchlists ({watchlist.length})</span>
-            </button>
+
 
             {/* Config Toggle */}
             <button
@@ -263,7 +275,7 @@ const Dashboard = () => {
 
             {/* Refresh Button */}
             <button
-              onClick={fetchAlerts}
+              onClick={() => { fetchAlerts(); fetchMacroTrends(); }}
               className="p-2 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200"
               title="Refresh alert feed"
             >
@@ -279,109 +291,118 @@ const Dashboard = () => {
               <Settings className="w-4 h-4 mr-2" />
               Scanner Engine Configuration
             </h3>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="flex items-start space-x-3">
-                <input
-                  id="strict-mode"
-                  type="checkbox"
-                  checked={config.strict_real_data}
-                  onChange={(e) => updateConfig(e.target.checked, config.allow_simulated_data)}
-                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <label htmlFor="strict-mode" className="text-sm font-bold text-white block">Strict Real-Data Mode</label>
-                  <span className="text-xs text-slate-400">
-                    When active, alerts are blocked unless real social mentions and live market volumes are verified. No fallback simulation is permitted.
-                  </span>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-3">
-                <input
-                  id="demo-mode"
-                  type="checkbox"
-                  checked={config.allow_simulated_data}
-                  onChange={(e) => updateConfig(config.strict_real_data, e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-800 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <label htmlFor="demo-mode" className="text-sm font-bold text-white block">Allow Simulated Fallbacks</label>
-                  <span className="text-xs text-slate-400">
-                    Enables mock values to populate empty APIs so the dashboard can demonstrate phonetic confusion mechanics without active keys.
-                  </span>
-                </div>
+            
+            {/* API Key Status Widget */}
+            <div className="mb-6">
+              <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">API Credentials Configuration Status</h4>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {Object.entries(keysStatus).map(([keyName, status]) => (
+                  <div key={keyName} className="flex items-center justify-between p-2.5 bg-slate-900/60 border border-slate-800 rounded-lg text-xs">
+                    <span className="text-slate-400 font-mono text-[10px] uppercase">{keyName.replace(/_/g, ' ')}</span>
+                    <span className={`px-2 py-0.5 rounded font-extrabold text-[9px] uppercase ${
+                      status === 'configured' 
+                        ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                        : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+                    }`}>
+                      {status}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Watchlist Manager Panel */}
-        {showWatchlistPanel && (
-          <div className="mb-8 p-6 bg-[#111827]/80 backdrop-blur-md border border-indigo-500/20 rounded-2xl animate-slideDown">
-            <h3 className="text-sm font-extrabold uppercase text-indigo-400 tracking-wider mb-4 flex items-center">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Watchlist and Notification Manager
-            </h3>
-            
-            <div className="grid gap-6 md:grid-cols-3">
-              <form onSubmit={handleAddWatchlist} className="space-y-4 bg-slate-950/40 p-4 border border-slate-850 rounded-xl">
-                <h4 className="text-xs font-bold uppercase text-slate-400">Add Watchlist Element</h4>
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-500">Symbol or Tag</label>
+            {/* Dynamic Weights Sliders & Threshold Management */}
+            <div>
+              <h4 className="text-xs font-bold uppercase text-slate-400 mb-4">Scoring Algorithm Weight Settings</h4>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+                
+                {/* Velocity Weight */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Velocity Weight</span>
+                    <span className="text-blue-400 font-bold">{config.meme_weight_velocity}</span>
+                  </div>
                   <input
-                    type="text"
-                    value={newSymbol}
-                    onChange={(e) => setNewSymbol(e.target.value)}
-                    placeholder="e.g. TSLA or AAPL"
-                    className="w-full mt-1 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={config.meme_weight_velocity || 20}
+                    onChange={(e) => updateConfig({ meme_weight_velocity: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-blue-500"
                   />
                 </div>
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-500">Alert Min Threshold: {newThreshold}</label>
+
+                {/* Link Weight */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Similarity Weight</span>
+                    <span className="text-blue-400 font-bold">{config.meme_weight_link}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={config.meme_weight_link || 30}
+                    onChange={(e) => updateConfig({ meme_weight_link: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-855 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+
+                {/* Surge Weight */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Volume Surge Weight</span>
+                    <span className="text-blue-400 font-bold">{config.meme_weight_surge}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={config.meme_weight_surge || 30}
+                    onChange={(e) => updateConfig({ meme_weight_surge: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-855 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+
+                {/* Cap Weight */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Market Cap Penalty</span>
+                    <span className="text-blue-400 font-bold">{config.meme_weight_cap}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    value={config.meme_weight_cap || 10}
+                    onChange={(e) => updateConfig({ meme_weight_cap: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-855 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+
+                {/* Global Alert Threshold */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-indigo-400 font-extrabold">Min Alert Score</span>
+                    <span className="text-indigo-400 font-bold">{config.global_alert_threshold}</span>
+                  </div>
                   <input
                     type="range"
                     min="30"
                     max="90"
-                    value={newThreshold}
-                    onChange={(e) => setNewThreshold(e.target.value)}
-                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 mt-2"
+                    value={config.global_alert_threshold || 50}
+                    onChange={(e) => updateConfig({ global_alert_threshold: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-slate-855 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="w-full flex items-center justify-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all duration-200"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Ticker</span>
-                </button>
-              </form>
 
-              <div className="md:col-span-2 bg-slate-950/40 p-4 border border-slate-850 rounded-xl max-h-[200px] overflow-y-auto">
-                <h4 className="text-xs font-bold uppercase text-slate-400 mb-3">Monitored Watchlist Symbols</h4>
-                {watchlist.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic">No watchlists configured. Add a ticker to begin monitoring.</p>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {watchlist.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg text-xs">
-                        <div>
-                          <p className="font-extrabold text-white">{item.symbol_or_topic}</p>
-                          <p className="text-[10px] text-slate-500">Threshold: {item.alert_threshold} meme score</p>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveWatchlist(item.symbol_or_topic)}
-                          className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
+
           </div>
         )}
+
+
 
         {/* Source Health and Ingest status banners */}
         <div className="mb-6 grid gap-4 md:grid-cols-4">
@@ -428,6 +449,54 @@ const Dashboard = () => {
 
         {/* System Stats overview */}
         <MetricsGrid activeAlerts={alerts.length} avgScore={avgScore} avgConfidence={avgConfidence} />
+
+        {/* Today's Speculative Macro Trends & Catalysts */}
+        <section className="mt-8">
+          <div className="flex items-center space-x-2 mb-4">
+            <Sparkles className="h-5 w-5 text-indigo-400" />
+            <h3 className="text-lg font-bold tracking-wide text-white">Today's Speculative Macro Trends</h3>
+          </div>
+          
+          <div className="grid gap-6 md:grid-cols-2">
+            {macroTrends.map((trend) => (
+              <div key={trend.id} className="bg-[#151d30]/40 backdrop-blur-md border border-slate-800/80 rounded-2xl p-5 relative overflow-hidden transition-all duration-300 hover:border-slate-700/60 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400 border border-slate-700/60 uppercase tracking-wider">
+                      {trend.trend_type}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[9px] text-slate-500 font-mono">
+                        Updated: {new Date(trend.observed_at).toLocaleDateString([], {month: 'short', day: 'numeric'})}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
+                        trend.impact_direction === 'Bullish' 
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                          : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                      }`}>
+                        {trend.impact_direction}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <h4 className="text-base font-extrabold text-white tracking-tight">{trend.title}</h4>
+                  <p className="text-slate-400 text-[11px] leading-relaxed mt-2">{trend.description}</p>
+                </div>
+                
+                <div className="mt-4 pt-3 border-t border-slate-800/60 grid grid-cols-2 gap-2 text-[10px]">
+                  <div>
+                    <span className="text-slate-500 block uppercase font-bold text-[8px] tracking-wider">Impacted Sectors</span>
+                    <span className="text-slate-300 font-semibold">{trend.suggested_sectors}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-500 block uppercase font-bold text-[8px] tracking-wider">Scanned Tickers</span>
+                    <span className="text-indigo-400 font-extrabold">{trend.associated_tickers}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* Backtesting Control Board */}
         <div className="mt-8 p-6 bg-[#151d30]/30 border border-slate-800 rounded-2xl flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -476,14 +545,38 @@ const Dashboard = () => {
 
         {/* Alerts Grid */}
         <main className="mt-10">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-bold tracking-wide text-white">Active Market Alert Feed</h2>
-              <p className="text-xs text-slate-400 mt-1">Real-time alerts generated when social chatter aligns with equities volume surges.</p>
+              <h2 className="text-xl font-bold tracking-wide text-white">Market Opportunity Feed</h2>
+              <p className="text-xs text-slate-400 mt-1">Real-time alerts and predictive breakout candidates.</p>
             </div>
-            <span className="text-xs px-2.5 py-1 bg-slate-800/80 border border-slate-700 rounded-full font-semibold text-slate-400">
-              WAL-Mode SQLite Sync
-            </span>
+            <div className="flex mt-4 md:mt-0 space-x-2">
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-all ${
+                  activeTab === 'active' 
+                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/50' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                Active Volume Surges
+              </button>
+              <button
+                onClick={() => setActiveTab('predictive')}
+                className={`px-4 py-1.5 text-sm font-semibold rounded-lg border transition-all flex items-center space-x-2 ${
+                  activeTab === 'predictive' 
+                    ? 'bg-purple-600/20 text-purple-400 border-purple-500/50' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                <span>Pre-Breakout Opportunities</span>
+                {alerts.filter(a => a.is_predictive === 1).length > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] bg-purple-500 text-white rounded-full">
+                    {alerts.filter(a => a.is_predictive === 1).length}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -501,12 +594,12 @@ const Dashboard = () => {
               </div>
               <h3 className="text-lg font-bold text-white">No Active Alerts Found</h3>
               <p className="text-sm text-slate-400 mt-2 max-w-md">
-                No market anomalies have crossed the score threshold of 50. Click the <strong>Scan Now</strong> button to force a live scan or query the ingestion API.
+                No market anomalies have crossed your active score threshold of {currentThreshold}. Click the <strong>Scan Now</strong> button to force a live scan or query the ingestion API.
               </p>
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 animate-fadeIn">
-              {alerts.map((alert) => (
+              {alerts.filter(a => activeTab === 'predictive' ? a.is_predictive === 1 : a.is_predictive === 0).map((alert) => (
                 <AlertCard key={alert.id} alert={alert} />
               ))}
             </div>

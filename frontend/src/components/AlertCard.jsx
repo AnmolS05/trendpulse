@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   AlertTriangle, TrendingUp, Hash, DollarSign, ShieldAlert, 
   ChevronDown, ChevronUp, Info, Award, HelpCircle, CheckCircle, 
-  Calendar, Link2, Newspaper, Clock
+  Calendar, Link2, Newspaper, Clock, RefreshCw
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -48,12 +48,16 @@ const AlertCard = ({ alert }) => {
     if (showDetails && !evidence) {
       setLoadingEvidence(true);
       
-      const fetchEvidence = fetch(`${API_BASE}/api/alerts/${alert.id}/evidence`)
+      const headers = {
+        'X-API-KEY': import.meta.env.VITE_API_KEY || 'dev_secret_key_123'
+      };
+      
+      const fetchEvidence = fetch(`${API_BASE}/api/alerts/${alert.id}/evidence`, { headers })
         .then(res => res.json())
         .then(data => setEvidence(data))
         .catch(err => console.error("Error fetching evidence details:", err));
         
-      const fetchTimeline = fetch(`${API_BASE}/api/alerts/${alert.id}/timeline`)
+      const fetchTimeline = fetch(`${API_BASE}/api/alerts/${alert.id}/timeline`, { headers })
         .then(res => res.json())
         .then(data => setTimeline(data))
         .catch(err => console.error("Error fetching timeline details:", err));
@@ -78,6 +82,11 @@ const AlertCard = ({ alert }) => {
 
   return (
     <div className={`group bg-[#151d30]/60 backdrop-blur-md border border-slate-800/80 rounded-2xl p-6 relative overflow-hidden transition-all duration-300 hover:border-slate-700 ${style.glow} hover:shadow-[0_20px_35px_-15px_rgba(0,0,0,0.5)] flex flex-col justify-between`}>
+      {alert.is_predictive === 1 && (
+        <div className="absolute top-0 right-0 bg-purple-600/20 text-purple-400 border-l border-b border-purple-500/30 px-3 py-1 rounded-bl-xl text-[9px] font-extrabold uppercase tracking-wider animate-pulse">
+          Pre-Breakout Candidate
+        </div>
+      )}
       <div>
         {/* Top Header Row */}
         <div className="flex justify-between items-start mb-4">
@@ -101,10 +110,17 @@ const AlertCard = ({ alert }) => {
 
           {/* Scores Side-by-Side */}
           <div className="flex space-x-2">
-            <div className={`flex flex-col items-center px-2.5 py-1 rounded-xl border ${style.bg} text-center min-w-[65px]`}>
-              <span className="text-[8px] uppercase font-extrabold tracking-wider text-slate-400">Meme Score</span>
-              <span className={`text-base font-black ${style.text}`}>{Math.round(alert.meme_score)}</span>
-            </div>
+            {alert.is_predictive === 1 ? (
+              <div className="flex flex-col items-center px-2.5 py-1 rounded-xl border bg-purple-500/10 border-purple-500/30 text-center min-w-[65px] shadow-[0_0_15px_-3px_rgba(168,85,247,0.3)]">
+                <span className="text-[8px] uppercase font-extrabold tracking-wider text-slate-400">Breakout Prob</span>
+                <span className="text-base font-black text-purple-400">{Math.round(alert.surge_probability || 0)}%</span>
+              </div>
+            ) : (
+              <div className={`flex flex-col items-center px-2.5 py-1 rounded-xl border ${style.bg} text-center min-w-[65px]`}>
+                <span className="text-[8px] uppercase font-extrabold tracking-wider text-slate-400">Meme Score</span>
+                <span className={`text-base font-black ${style.text}`}>{Math.round(alert.meme_score)}</span>
+              </div>
+            )}
             
             <div className={`flex flex-col items-center px-2.5 py-1 rounded-xl border ${confidenceStyle.bg} text-center min-w-[65px]`}>
               <span className="text-[8px] uppercase font-extrabold tracking-wider text-slate-400">Confidence</span>
@@ -129,18 +145,36 @@ const AlertCard = ({ alert }) => {
         {/* Primary Metrics Row */}
         <div className="grid grid-cols-2 gap-3 my-3">
           <div className="p-2.5 bg-slate-900/40 border border-slate-800/40 rounded-xl flex items-center space-x-3">
-            <TrendingUp className="w-4 h-4 text-blue-400 shrink-0" />
+            {alert.is_predictive === 1 ? (
+              <Clock className="w-4 h-4 text-purple-400 shrink-0" />
+            ) : (
+              <TrendingUp className="w-4 h-4 text-blue-400 shrink-0" />
+            )}
             <div>
-              <span className="text-[9px] text-slate-500 uppercase font-bold block">Vol Surge</span>
-              <p className="text-sm font-black text-white">{alert.volume_surge_multiplier.toFixed(2)}x</p>
+              <span className="text-[9px] text-slate-500 uppercase font-bold block">
+                {alert.is_predictive === 1 ? 'Est. Lead Window' : 'Vol Surge'}
+              </span>
+              <p className="text-sm font-black text-white">
+                {alert.is_predictive === 1 
+                  ? `${alert.est_lead_time_hours ? alert.est_lead_time_hours.toFixed(1) : 'N/A'} hrs` 
+                  : `${alert.volume_surge_multiplier.toFixed(2)}x`
+                }
+              </p>
             </div>
           </div>
           
           <div className="p-2.5 bg-slate-900/40 border border-slate-800/40 rounded-xl flex items-center space-x-3">
             <Hash className="w-4 h-4 text-indigo-400 shrink-0" />
             <div>
-              <span className="text-[9px] text-slate-500 uppercase font-bold block">Velocity</span>
-              <p className="text-sm font-black text-white">{alert.social_velocity.toFixed(1)}x</p>
+              <span className="text-[9px] text-slate-500 uppercase font-bold block">
+                {alert.is_predictive === 1 ? 'Soc Accel' : 'Velocity'}
+              </span>
+              <p className="text-sm font-black text-white">
+                {alert.is_predictive === 1 
+                  ? `+${alert.social_acceleration ? alert.social_acceleration.toFixed(2) : '0.00'}x / hr`
+                  : `${alert.social_velocity.toFixed(1)}x`
+                }
+              </p>
             </div>
           </div>
         </div>

@@ -43,7 +43,13 @@ class Alert(Base):
     meme_score = Column(Float)
     volume_surge_multiplier = Column(Float)
     social_velocity = Column(Float)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # Predictive indicators
+    is_predictive = Column(Integer, default=0, index=True) # 1 = Predictive, 0 = Coincident Active
+    surge_probability = Column(Float, nullable=True) # 0.0 to 100.0%
+    social_acceleration = Column(Float, nullable=True) # Rate of change in social mentions
+    est_lead_time_hours = Column(Float, nullable=True) # Predicted hours before market breakout
 
     # Expanded alert metadata for Phase 2 and 3
     confidence_score = Column(Float, default=0.0)
@@ -77,7 +83,7 @@ class TrendObservation(Base):
     source = Column(String, index=True)
     raw_value = Column(Float)
     normalized_value = Column(Float)
-    observed_at = Column(DateTime(timezone=True), server_default=func.now())
+    observed_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     source_url = Column(String, nullable=True)
     metadata_json = Column(String, nullable=True)
 
@@ -93,7 +99,7 @@ class MarketObservation(Base):
     latest_volume = Column(Float, nullable=True)
     avg_volume = Column(Float, nullable=True)
     volume_surge = Column(Float, nullable=True)
-    observed_at = Column(DateTime(timezone=True), server_default=func.now())
+    observed_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     metadata_json = Column(String, nullable=True)
 
 
@@ -149,8 +155,36 @@ class NewsArticle(Base):
     title = Column(String)
     source = Column(String)
     url = Column(String, unique=True, index=True)
-    published_at = Column(DateTime(timezone=True))
+    published_at = Column(DateTime(timezone=True), index=True)
     summary = Column(String, nullable=True)
     topic = Column(String, nullable=True, index=True)
     ticker_symbol = Column(String, nullable=True, index=True)
 
+
+class MacroTrend(Base):
+    """Caches daily generated speculative macro trends and current affairs market impact analysis."""
+    __tablename__ = "macro_trends"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    trend_type = Column(String, index=True) # e.g., "Seasonal", "Geopolitical", "Macroeconomic"
+    description = Column(String)
+    impact_direction = Column(String) # "Bullish" or "Bearish"
+    suggested_sectors = Column(String)
+    associated_tickers = Column(String) # Comma-separated list of symbols (e.g. "PARLE.NS, TSLA")
+    confidence_score = Column(Float, default=70.0)
+    observed_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class EntityRecommendation(Base):
+    """Caches autonomously discovered stock targets for user approval."""
+    __tablename__ = "entity_recommendations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String, unique=True, index=True)
+    company_name = Column(String)
+    sector = Column(String, nullable=True)
+    industry = Column(String, nullable=True)
+    exchange = Column(String, nullable=True)
+    status = Column(String, default="pending", index=True) # pending, approved, ignored
+    observed_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

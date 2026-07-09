@@ -1,36 +1,67 @@
+# Environment Secrets & Configs
+.env
+.env.local
+.env.*.local
+*.local
+
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+backend/trendpulse.db*
+trendpulse.db*
+
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
 .pytest_cache/
 .ipynb_checkpoints/
 .venv/
 env/
 venv/
+ENV/
+*.egg-info/
+.eggs/
+.coverage
+htmlcov/
 
-# Database
-*.db
-*.db-shm
-*.db-wal
-*.sqlite3
-backend/trendpulse.db*
-trendpulse.db*
-
-
-# Node / Frontend
+# Node.js / Frontend
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 dist/
 dist-ssr/
-*.local
+.eslintcache
 
-# Editor / OS
-.idea/
-.vscode/
+# OS / System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Tool Caches
+# IDEs & Editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+
+# Tool Caches / Dumps
 .frankenreview/
 frankenreview_dump.md
-
