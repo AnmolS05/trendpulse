@@ -3,7 +3,7 @@ import math
 from typing import List, Dict, Any, Tuple
 from datetime import datetime, timedelta
 from textblob import TextBlob
-
+from sqlalchemy.orm import Session
 from ..config import settings
 from ..models import TrendObservation
 
@@ -165,7 +165,7 @@ def assess_alert_risks(
     return flags, risk_summary
 
 
-def calculate_social_acceleration(db_session, topic: str, current_value: float) -> float:
+def calculate_social_acceleration(db_session: Session, topic: str, current_value: float) -> float:
     """
     Calculates the rate of change of social velocity over the past 3 hours.
     Returns 0.0 if insufficient historical trend observations exist.

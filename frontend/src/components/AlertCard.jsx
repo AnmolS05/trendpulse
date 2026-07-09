@@ -329,4 +329,4 @@ const AlertCard = ({ alert }) => {
   );
 };
 
-export default AlertCard;
+export default React.memo(AlertCard);
