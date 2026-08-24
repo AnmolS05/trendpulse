@@ -1,4 +1,7 @@
-# TrendPulse
+# TrendPulse 📈
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 TrendPulse is an automated, low-latency ingestion and scanning pipeline that monitors social media search velocities (Google Trends, Reddit hot topics), maps them phonetically and semantically to publicly listed equities (to catch retail "mistaken identity" anomalies), validates them using volume surges, and generates momentum alerts.
 
